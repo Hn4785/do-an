@@ -1,0 +1,32 @@
+# ===== Frontend Dependencies (Core) =====
+react@^18.2.0
+react-dom@^18.2.0
+react-router-dom@^6.22.0
+typescript@^5.4.0
+vite@^6.0.0
+
+# ===== UI & Styling =====
+tailwindcss@^3.4.0
+lucide-react@^0.400.0
+clsx@^2.1.0
+tailwind-merge@^2.2.0
+
+# ===== Data & API =====
+axios@^1.6.0
+zustand@^4.5.0
+lodash@^4.17.21
+dayjs@^1.11.10
+uuid@^9.0.0
+
+# ===== Visualization & Charts =====
+chart.js@^4.4.0
+react-chartjs-2@^5.2.0
+recharts@^2.12.0
+
+# ===== Export & Reports =====
+jspdf@^2.5.1
+jspdf-autotable@^3.8.2
+file-saver@^2.0.5
+
+# NOTE: Trong môi trường Node.js (Frontend), vui lòng sử dụng 'npm install' 
+# thay vì 'pip install' để cài đặt các thư viện này từ file package.json.
