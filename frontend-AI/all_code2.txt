@@ -1,0 +1,468 @@
+﻿=== E:\N\frontend-AI\src\api\axiosClient.ts ===
+=== E:\N\frontend-AI\src\api\emotionApi.ts ===
+=== E:\N\frontend-AI\src\api\featureApi.ts ===
+=== E:\N\frontend-AI\src\api\reportApi.ts ===
+=== E:\N\frontend-AI\src\api\sessionApi.ts ===
+=== E:\N\frontend-AI\src\hooks\useAltertEngine.ts ===
+=== E:\N\frontend-AI\src\hooks\useBlinkDetection.ts ===
+=== E:\N\frontend-AI\src\hooks\useEmotionData.ts ===
+=== E:\N\frontend-AI\src\hooks\useFusionData.ts ===
+=== E:\N\frontend-AI\src\hooks\useRealtimeBuffer.ts ===
+=== E:\N\frontend-AI\src\hooks\useSession.ts ===
+=== E:\N\frontend-AI\src\hooks\useStressLevel.ts ===
+=== E:\N\frontend-AI\src\hooks\useWebcam.ts ===
+=== E:\N\frontend-AI\src\hooks\useWebSocket.ts ===
+=== E:\N\frontend-AI\src\services\notificationService.ts ===
+=== E:\N\frontend-AI\src\services\sesionService.ts ===
+=== E:\N\frontend-AI\src\services\websocketService.ts ===
+=== E:\N\frontend-AI\src\store\useAlertStore.ts ===
+=== E:\N\frontend-AI\src\store\useEmotionStore.ts ===
+=== E:\N\frontend-AI\src\store\useFeatureStore.ts ===
+=== E:\N\frontend-AI\src\store\useSessionStore.ts ===
+=== E:\N\frontend-AI\src\store\useSettingsStore.ts ===
+=== E:\N\frontend-AI\src\types\alert.types.ts ===
+=== E:\N\frontend-AI\src\types\api.types.ts ===
+=== E:\N\frontend-AI\src\types\emotion.types.ts ===
+export type EmotionLabel =
+  | "angry"      // Tá»©c giáº­n
+  | "disgust"    // GhÃª tá»Ÿm
+  | "fear"       // Sá»£ hÃ£i
+  | "happy"      // Vui váº»
+  | "sad"        // Buá»“n
+  | "surprise"   // Ngáº¡c nhiÃªn
+  | "neutral";   // Trung tÃ­nh
+
+export const EMOTION_LABELS: EmotionLabel[] = [
+  "angry", "disgust", "fear", "happy", "sad", "surprise", "neutral",
+];
+
+export const EMOTION_LABELS_VI: Record<EmotionLabel, string> = {
+  angry:    "Tá»©c giáº­n",
+  disgust:  "GhÃª tá»Ÿm",
+  fear:     "Sá»£ hÃ£i",
+  happy:    "Vui váº»",
+  sad:      "Buá»“n",
+  surprise: "Ngáº¡c nhiÃªn",
+  neutral:  "Trung tÃ­nh",
+};
+
+export const EMOTION_COLORS: Record<EmotionLabel, string> = {
+  angry:    "#FF4444",
+  disgust:  "#A3E635",
+  fear:     "#A78BFA",
+  happy:    "#4ECDC4",
+  sad:      "#6B9FFF",
+  surprise: "#FFB347",
+  neutral:  "#9CA3AF",
+};
+
+export const EMOTION_ICONS: Record<EmotionLabel, string> = {
+  angry:    "ðŸ˜ ",
+  disgust:  "ðŸ¤¢",
+  fear:     "ðŸ˜¨",
+  happy:    "ðŸ˜Š",
+  sad:      "ðŸ˜¢",
+  surprise: "ðŸ˜²",
+  neutral:  "ðŸ˜",
+};
+
+export interface DeepFaceRawEmotion {
+  dominant_emotion: EmotionLabel;
+  emotion:          Record<EmotionLabel, number>;  // 0â€“100 (%)
+}
+
+export interface EmotionScore {
+  label:      EmotionLabel;
+  score:      number;      // 0.0 â€“ 1.0  (Ä‘Ã£ chia 100 tá»« raw)
+  percentage: number;      // 0 â€“ 100    (giá»¯ nguyÃªn raw, dÃ¹ng cho UI)
+}
+
+export interface EmotionResult {
+  /** Cáº£m xÃºc cÃ³ confidence cao nháº¥t â€” map tá»« dominant_emotion */
+  dominant:      EmotionLabel;
+  dominantScore: number;
+  scores:        EmotionScore[];
+  processedAt:   number;
+}
+
+export interface EmotionSnapshot {
+  timestamp:   number;        // Unix ms
+  result:      EmotionResult;
+  frameIndex:  number;        // Thá»© tá»± frame liÃªn tá»¥c trong phiÃªn
+}
+
+export interface EmotionStats {
+  mostFrequent:  EmotionLabel;
+  distribution:  Record<EmotionLabel, number>;
+  totalFrames:   number;
+  durationMs:    number;
+}
+
+export interface EmotionState {
+  current:      EmotionResult | null;
+  history:      EmotionSnapshot[];
+  stats:        EmotionStats | null;
+  isProcessing: boolean;
+  lastUpdated:  number | null;
+}
+=== E:\N\frontend-AI\src\types\feature.types.ts ===
+/** Má»©c Ä‘á»™ nhÃ­u mÃ y (Brow Furrow) â€” tÃ­nh tá»« khoáº£ng cÃ¡ch landmark */
+export type BrowFurrowLevel =
+  | "none"       // KhÃ´ng nhÃ­u
+  | "slight"     // Nháº¹
+  | "moderate"   // Vá»«a
+  | "strong";    // Máº¡nh / rÃµ rá»‡t
+
+/** Tráº¡ng thÃ¡i miá»‡ng */
+export type MouthState =
+  | "closed"       // ÄÃ³ng
+  | "slightly_open"  // HÃ© má»Ÿ
+  | "open"         // Má»Ÿ
+  | "wide_open";   // HÃ¡ rá»™ng (ngÃ¡p / ngáº¡c nhiÃªn)
+ 
+/** Má»©c Ä‘á»™ nháº¿ch mÃ©p (Lip Corner Pull) */
+export type LipCornerState =
+  | "none"       // Trung tÃ­nh
+  | "slight"     // Nháº¿ch nháº¹ (má»‰m cÆ°á»i nhá»)
+  | "smile"      // CÆ°á»i rÃµ
+  | "frown";     // MÃ©p kÃ©o xuá»‘ng (buá»“n / lo)
+ 
+/** Táº§n suáº¥t nhÃ¡y máº¯t so vá»›i baseline */
+export type BlinkRateCategory =
+  | "very_slow"  // < 8 láº§n/phÃºt  â†’ má»‡t má»i / cÄƒng tháº³ng cao
+  | "slow"       // 8â€“12 láº§n/phÃºt â†’ hÆ¡i tháº¥p
+  | "normal"     // 13â€“20 láº§n/phÃºt â†’ bÃ¬nh thÆ°á»ng
+  | "fast"       // 21â€“30 láº§n/phÃºt â†’ kÃ­ch Ä‘á»™ng nháº¹
+  | "very_fast"; // > 30 láº§n/phÃºt  â†’ lo láº¯ng / má»‡t
+
+/** Tráº¡ng thÃ¡i má»™t bÃªn máº¯t táº¡i thá»i Ä‘iá»ƒm frame */
+export type EyeState = "open" | "half_open" | "closed";
+
+export interface Landmark {
+  x: number;   // 0.0 â€“ 1.0 (normalized theo width)
+  y: number;   // 0.0 â€“ 1.0 (normalized theo height)
+  z: number;   // Ä‘á»™ sÃ¢u tÆ°Æ¡ng Ä‘á»‘i
+}
+
+export interface FaceBoundingBox {
+  x:      number;  // px, gÃ³c trÃªn trÃ¡i
+  y:      number;  // px, gÃ³c trÃªn trÃ¡i
+  width:  number;  // px
+  height: number;  // px
+  confidence: number;
+}
+
+/**
+ * Eye Aspect Ratio â€” chá»‰ sá»‘ Ä‘o Ä‘á»™ má»Ÿ cá»§a máº¯t.
+ * EAR = (vertical distances) / (2 * horizontal distance)
+ * EAR < 0.2 thÆ°á»ng Ä‘Æ°á»£c coi lÃ  Ä‘ang nháº¯m/nhÃ¡y máº¯t.
+ */
+export interface EyeAspectRatio {
+  left:    number;   // EAR máº¯t trÃ¡i
+  right:   number;   // EAR máº¯t pháº£i
+  average: number;   // Trung bÃ¬nh hai máº¯t
+}
+
+/* ThÃ´ng tin nhÃ¡y máº¯t cho má»™t frame.*/
+
+export interface BlinkData {
+  /** true náº¿u phÃ¡t hiá»‡n nhÃ¡y máº¯t trong frame hiá»‡n táº¡i */
+  isBlinking:     boolean;
+ 
+  /** EAR táº¡i frame nÃ y */
+  ear:            EyeAspectRatio;
+ 
+  /** Tráº¡ng thÃ¡i tá»«ng máº¯t */
+  leftEyeState:   EyeState;
+  rightEyeState:  EyeState;
+ 
+  /** Sá»‘ láº§n nhÃ¡y trong cá»­a sá»• cuá»‘n (rolling window, default 60s) */
+  countInWindow:  number;
+ 
+  /** Táº§n suáº¥t (láº§n/phÃºt) trong cá»­a sá»• cuá»‘n */
+  ratePerMinute:  number;
+ 
+  /** PhÃ¢n loáº¡i táº§n suáº¥t so vá»›i baseline */
+  rateCategory:   BlinkRateCategory;
+}
+
+/**
+ * ThÃ´ng tin nhÃ­u mÃ y.
+ * TÃ­nh tá»« khoáº£ng cÃ¡ch dá»c giá»¯a landmark lÃ´ng mÃ y vÃ  khoÃ© máº¯t.
+ */
+export interface BrowData {
+  furrowLevel:    BrowFurrowLevel;
+ 
+  /** Khoáº£ng cÃ¡ch normalized giá»¯a hai Ä‘áº§u lÃ´ng mÃ y (0.0 â€“ 1.0) */
+  innerDistance:  number;
+ 
+  /** true náº¿u má»™t bÃªn lÃ´ng mÃ y nhÆ°á»›ng lÃªn báº¥t Ä‘á»‘i xá»©ng */
+  isAsymmetric:   boolean;
+ 
+  /** Äá»™ cao cá»§a lÃ´ng mÃ y so vá»›i baseline (trá»¥c y, normalized) */
+  leftHeight:     number;
+  rightHeight:    number;
+}
+
+export interface MouthAspectRatio {
+  value:    number;    // MAR hiá»‡n táº¡i
+  baseline: number;    // MAR khi miá»‡ng Ä‘Ã³ng tá»± nhiÃªn (cÃ¡ nhÃ¢n hoÃ¡)
+}
+
+export interface MouthData {
+  state:         MouthState;
+  mar:           MouthAspectRatio;
+  lipCorner:     LipCornerState;
+ 
+  /** true náº¿u Ä‘ang nÃ³i / cá»­ Ä‘á»™ng miá»‡ng liÃªn tá»¥c (â‰¥ 3 frame) */
+  isTalking:     boolean;
+ 
+  /** GÃ³c cá»§a Ä‘uÃ´i mÃ´i so vá»›i ngang (Ä‘á»™, dÆ°Æ¡ng = cÆ°á»i, Ã¢m = máº¿u) */
+  cornerAngle:   number;
+}
+
+export interface MuscleTensionData {
+  /** Chá»‰ sá»‘ tá»•ng há»£p 0 â€“ 100 */
+  overallScore:   number;
+ 
+  /** CÄƒng tháº³ng vÃ¹ng trÃ¡n / lÃ´ng mÃ y */
+  foreheadScore:  number;
+ 
+  /** CÄƒng tháº³ng vÃ¹ng hÃ m (jaw clenching Æ°á»›c lÆ°á»£ng) */
+  jawScore:       number;
+ 
+  /** CÄƒng tháº³ng vÃ¹ng quanh máº¯t */
+  periocularScore: number;
+}
+
+export interface HeadPose {
+  pitch: number;   // Gáº­t Ä‘áº§u lÃªn/xuá»‘ng  (+= cÃºi, -= ngáº©ng)
+  yaw:   number;   // Quay trÃ¡i/pháº£i     (+= pháº£i, -= trÃ¡i)
+  roll:  number;   // NghiÃªng Ä‘áº§u        (+= pháº£i, -= trÃ¡i)
+}
+
+export interface FaceFeatures {
+  /** null náº¿u khÃ´ng phÃ¡t hiá»‡n khuÃ´n máº·t trong frame */
+  boundingBox:    FaceBoundingBox | null;
+ 
+  /** null náº¿u khÃ´ng cÃ³ khuÃ´n máº·t */
+  landmarks:      Landmark[] | null;   // 468 Ä‘iá»ƒm MediaPipe
+ 
+  blink:          BlinkData;
+  brow:           BrowData;
+  mouth:          MouthData;
+  tension:        MuscleTensionData;
+  headPose:       HeadPose;
+ 
+  /** Unix ms */
+  extractedAt:    number;
+ 
+  /** Thá»i gian xá»­ lÃ½ frame (ms) â€” dÃ¹ng Ä‘á»ƒ hiá»ƒn thá»‹ latency */
+  processingMs:   number;
+}
+
+export interface FeatureState {
+  current:       FaceFeatures | null;
+  faceDetected:  boolean;
+  lastUpdated:   number | null;
+}
+=== E:\N\frontend-AI\src\types\fusion.types.ts ===
+=== E:\N\frontend-AI\src\types\report.types.ts ===
+=== E:\N\frontend-AI\src\types\session.types.ts ===
+=== E:\N\frontend-AI\src\types\websocket.types.ts ===
+import type { EmotionResult }  from "./emotion.types";
+import type { FaceFeatures }   from "./feature.types";
+
+export type WsConnectionStatus =
+  | "idle"          // ChÆ°a khá»Ÿi táº¡o
+  | "connecting"    // Äang káº¿t ná»‘i
+  | "connected"     // ÄÃ£ káº¿t ná»‘i, Ä‘ang nháº­n data
+  | "reconnecting"  // Máº¥t káº¿t ná»‘i, Ä‘ang thá»­ láº¡i
+  | "disconnected"  // ÄÃ£ ngáº¯t káº¿t ná»‘i cÃ³ chá»§ Ã½
+  | "error";        // Lá»—i khÃ´ng thá»ƒ recover
+
+export type WsInboundType =
+  | "frame_result"       // Káº¿t quáº£ xá»­ lÃ½ 1 frame (features + emotion)
+  | "session_started"    // Backend xÃ¡c nháº­n báº¯t Ä‘áº§u phiÃªn
+  | "session_ended"      // Backend thÃ´ng bÃ¡o káº¿t thÃºc phiÃªn
+  | "alert"              // Cáº£nh bÃ¡o (stress cao, blink tháº¥p, â€¦)
+  | "heartbeat"          // Ping giá»¯ káº¿t ná»‘i
+  | "error"              // Lá»—i tá»« backend
+  | "calibration_done";  // HoÃ n thÃ nh calibration khuÃ´n máº·t
+
+export type WsOutboundType =
+  | "start_session"     // YÃªu cáº§u báº¯t Ä‘áº§u ghi nháº­n
+  | "stop_session"      // YÃªu cáº§u dá»«ng ghi nháº­n
+  | "pause_session"     // Táº¡m dá»«ng (giá»¯ nguyÃªn phiÃªn)
+  | "resume_session"    // Tiáº¿p tá»¥c sau khi pause
+  | "start_calibration" // Báº¯t Ä‘áº§u hiá»‡u chá»‰nh khuÃ´n máº·t
+  | "heartbeat_ack"     // Pháº£n há»“i ping
+  | "update_config";    // Cáº­p nháº­t cáº¥u hÃ¬nh realtime
+
+export interface WsBaseMessage {
+  /** Loáº¡i message Ä‘á»ƒ phÃ¢n biá»‡t handler */
+  type:      string;
+ 
+  /** Unix ms â€” thá»i Ä‘iá»ƒm message Ä‘Æ°á»£c táº¡o */
+  timestamp: number;
+ 
+  /** ID duy nháº¥t cá»§a message (UUID v4), dÃ¹ng Ä‘á»ƒ debug */
+  messageId: string;
+}
+
+export interface WsFrameResultMessage extends WsBaseMessage {
+  type:     "frame_result";
+  payload: {
+    features:   FaceFeatures;
+    emotion:    EmotionResult;
+ 
+    /** Sá»‘ thá»© tá»± frame trong phiÃªn hiá»‡n táº¡i */
+    frameIndex: number;
+ 
+    /** FPS thá»±c táº¿ cá»§a backend táº¡i thá»i Ä‘iá»ƒm nÃ y */
+    currentFps: number;
+  };
+}
+
+export interface WsSessionStartedMessage extends WsBaseMessage {
+  type:     "session_started";
+  payload: {
+    sessionId:   string;
+    startedAt:   number;    // Unix ms
+    config:      WsSessionConfig;
+  };
+}
+
+export interface WsSessionEndedMessage extends WsBaseMessage {
+  type:     "session_ended";
+  payload: {
+    sessionId:  string;
+    endedAt:    number;
+    reason:     "user_stopped" | "timeout" | "error" | "camera_lost";
+  };
+}
+
+export interface WsAlertMessage extends WsBaseMessage {
+  type:     "alert";
+  payload: {
+    alertId:    string;
+    alertType:  string;
+    severity:   "info" | "warning" | "critical";
+    message:    string;
+    data:       Record<string, unknown>;
+  };
+}
+
+export interface WsHeartbeatMessage extends WsBaseMessage {
+  type: "heartbeat";
+  payload: {
+    serverTime: number;
+  };
+}
+
+export interface WsErrorMessage extends WsBaseMessage {
+  type:     "error";
+  payload: {
+    code:    string;    // VD: "CAMERA_NOT_FOUND", "MODEL_LOAD_FAILED"
+    message: string;
+    fatal:   boolean;   // true = pháº£i reconnect / reload
+  };
+}
+
+export interface WsCalibrationDoneMessage extends WsBaseMessage {
+  type:     "calibration_done";
+  payload: {
+    success:      boolean;
+    baselineEar:  number;   // EAR baseline cÃ¡ nhÃ¢n hoÃ¡
+    baselineMar:  number;   // MAR baseline
+    message:      string;
+  };
+}
+
+export type WsInboundMessage =
+  | WsFrameResultMessage
+  | WsSessionStartedMessage
+  | WsSessionEndedMessage
+  | WsAlertMessage
+  | WsHeartbeatMessage
+  | WsErrorMessage
+  | WsCalibrationDoneMessage;
+
+export interface WsSessionConfig {
+  /** Sá»‘ frame xá»­ lÃ½ má»—i giÃ¢y (1â€“30) */
+  targetFps:           number;
+ 
+  /** Äá»™ phÃ¢n giáº£i camera */
+  resolution:          "480p" | "720p" | "1080p";
+ 
+  /** Báº­t/táº¯t tÃ­nh nÄƒng */
+  enableBlink:         boolean;
+  enableEmotion:       boolean;
+  enableMuscleTension: boolean;
+  enableHeadPose:      boolean;
+ 
+  /** NgÆ°á»¡ng cáº£nh bÃ¡o stress (0â€“100) */
+  stressAlertThreshold: number;
+ 
+  /** NgÆ°á»¡ng cáº£nh bÃ¡o blink rate (láº§n/phÃºt) */
+  blinkAlertThreshold:  number;
+}
+ 
+export interface WsStartSessionMessage extends WsBaseMessage {
+  type:    "start_session";
+  payload: { config: WsSessionConfig };
+}
+
+export interface WsStopSessionMessage extends WsBaseMessage {
+  type:    "stop_session";
+  payload: { sessionId: string };
+}
+ 
+export interface WsPauseSessionMessage extends WsBaseMessage {
+  type:    "pause_session";
+  payload: { sessionId: string };
+}
+ 
+export interface WsResumeSessionMessage extends WsBaseMessage {
+  type:    "resume_session";
+  payload: { sessionId: string };
+}
+ 
+export interface WsHeartbeatAckMessage extends WsBaseMessage {
+  type:    "heartbeat_ack";
+  payload: { clientTime: number };
+}
+ 
+export interface WsUpdateConfigMessage extends WsBaseMessage {
+  type:    "update_config";
+  payload: { config: Partial<WsSessionConfig> };
+}
+
+export type WsOutboundMessage =
+  | WsStartSessionMessage
+  | WsStopSessionMessage
+  | WsPauseSessionMessage
+  | WsResumeSessionMessage
+  | WsHeartbeatAckMessage
+  | WsUpdateConfigMessage;
+ 
+export interface WsConnectionState {
+  status:         WsConnectionStatus;
+  url:            string;
+  sessionId:      string | null;
+  connectedAt:    number | null;
+  lastMessageAt:  number | null;
+  reconnectCount: number;
+  latencyMs:      number | null;
+  error:          string | null;
+}
+=== E:\N\frontend-AI\src\utils\alertRules.ts ===
+=== E:\N\frontend-AI\src\utils\canvasDrawing.ts ===
+=== E:\N\frontend-AI\src\utils\constants.ts ===
+=== E:\N\frontend-AI\src\utils\emotionHelpers.ts ===
+=== E:\N\frontend-AI\src\utils\exportUtils.ts ===
+=== E:\N\frontend-AI\src\utils\formatters.ts ===
+=== E:\N\frontend-AI\src\utils\statisticsUtils.ts ===
+=== E:\N\frontend-AI\src\index.css ===
+=== E:\N\frontend-AI\index.html ===
+=== E:\N\frontend-AI\vite.config.ts ===
