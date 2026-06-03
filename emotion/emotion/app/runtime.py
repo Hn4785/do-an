@@ -1,4 +1,4 @@
-"""
+﻿"""
 FastAPI server used by the project start scripts.
 
 This file is the contract layer between the React frontend and the local
@@ -24,7 +24,8 @@ from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnec
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(APP_DIR)
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, os.path.join(BASE_DIR, "src"))
 
@@ -37,7 +38,10 @@ from sqlite_storage import SQLiteStorage
 from test import FaceAnalyzer
 
 
-storage = SQLiteStorage()
+storage = SQLiteStorage(
+    db_path=os.path.join(BASE_DIR, "data", "face_emotion.db"),
+    schema_path=os.path.join(BASE_DIR, "sql", "schema.sql"),
+)
 storage.init_schema()
 
 app = FastAPI(title="Face Emotion Monitor API")
@@ -137,6 +141,52 @@ def calc_focus_level(stress_score: float, blink_rate: float) -> str:
     if stress_score >= 40:
         return "medium"
     return "high"
+
+
+def row_has_blink(row: dict) -> bool:
+    return "blink" in (row.get("state_text") or "").lower()
+
+
+def count_blink_events(metrics: list[dict]) -> int:
+    total = 0
+    was_blinking = False
+    for row in metrics:
+        is_blinking = row_has_blink(row)
+        if is_blinking and not was_blinking:
+            total += 1
+        was_blinking = is_blinking
+    return total
+
+
+def estimate_frame_interval_ms(metrics: list[dict], fallback_fps: float = 15.0) -> int:
+    timestamps = [int(row.get("timestamp_ms") or 0) for row in metrics]
+    diffs = [cur - prev for prev, cur in zip(timestamps, timestamps[1:]) if cur > prev]
+    if diffs:
+        return max(1, int(sum(diffs) / len(diffs)))
+    fps = fallback_fps if fallback_fps > 0 else 15.0
+    return int(1000 / fps)
+
+
+def build_blink_series(metrics: list[dict]) -> tuple[list[int], list[float]]:
+    blink_times = []
+    was_blinking = False
+    rates = []
+    for row in metrics:
+        timestamp = int(row.get("timestamp_ms") or 0)
+        is_blinking = row_has_blink(row)
+        if is_blinking and not was_blinking:
+            blink_times.append(timestamp)
+        was_blinking = is_blinking
+        rates.append(float(sum(1 for item in blink_times if 0 <= timestamp - item <= 60000)))
+    return blink_times, rates
+
+
+def sum_timeline_duration(
+    timeline: list[dict],
+    interval_ms: int,
+    predicate,
+) -> int:
+    return int(sum(interval_ms for point in timeline if predicate(point)))
 
 
 def build_emotion(emotion_label: str, raw_scores: dict) -> dict:
@@ -242,7 +292,7 @@ def build_features(
             "rateCategory": classify_blink_rate(blink_rate),
         },
         "brow": {
-            "furrowLevel": "strong" if any(s in ["Nhiu may", "Nhíu mày", "frown"] for s in states) else "none",
+            "furrowLevel": "strong" if any(s in ["Nhiu may", "NhÃ­u mÃ y", "frown"] for s in states) else "none",
             "innerDistance": brow_distance,
             "isAsymmetric": False,
             "leftHeight": round(float(analysis.get("brow_left_height", 0.0)), 4),
@@ -353,6 +403,9 @@ def build_report(session_id: int) -> dict:
     labels = [e["result"]["dominant"] for e in emotions]
     stress_values = [f["tension"]["overallScore"] for f in features]
     ear_values = [f["blink"]["ear"]["average"] for f in features]
+    interval_ms = estimate_frame_interval_ms(metrics, float(session["fps"] or 15))
+    blink_times, blink_rates = build_blink_series(metrics)
+    total_blinks = len(blink_times)
     distribution = {
         label: round(labels.count(label) * 100 / total, 2) if total else 0.0
         for label in EMOTION_LABELS
@@ -363,7 +416,7 @@ def build_report(session_id: int) -> dict:
     for idx, row in enumerate(metrics):
         feature = features[idx]
         emotion = emotions[idx]
-        blink_rate = feature["blink"]["ratePerMinute"]
+        blink_rate = blink_rates[idx] if idx < len(blink_rates) else 0.0
         stress_score = feature["tension"]["overallScore"]
         timeline.append(
             {
@@ -376,6 +429,24 @@ def build_report(session_id: int) -> dict:
                 "focusLevel": calc_focus_level(stress_score, blink_rate),
             }
         )
+
+    focus_counts = {
+        "high": sum(1 for point in timeline if point["focusLevel"] == "high"),
+        "medium": sum(1 for point in timeline if point["focusLevel"] == "medium"),
+        "low": sum(1 for point in timeline if point["focusLevel"] == "low"),
+    }
+    focus_distribution = {
+        key: round(value * 100 / total, 2) if total else 0.0
+        for key, value in focus_counts.items()
+    }
+    total_observed_ms = max(duration_ms, total * interval_ms)
+    long_no_blink_ms = 0
+    if total_observed_ms and blink_times:
+        gaps = [blink_times[0], *[cur - prev for prev, cur in zip(blink_times, blink_times[1:])]]
+        gaps.append(max(0, int(total_observed_ms) - blink_times[-1]))
+        long_no_blink_ms = sum(max(0, gap - 5000) for gap in gaps if gap > 5000)
+    elif total_observed_ms:
+        long_no_blink_ms = max(0, int(total_observed_ms) - 5000)
 
     return {
         "reportId": f"report_{session_id}",
@@ -402,27 +473,27 @@ def build_report(session_id: int) -> dict:
             "transitionCount": sum(1 for prev, cur in zip(labels, labels[1:]) if prev != cur),
         },
         "blink": {
-            "totalBlinks": sum(1 for f in features if f["blink"]["isBlinking"]),
-            "avgRatePerMin": 0.0,
-            "minRatePerMin": 0.0,
-            "maxRatePerMin": 0.0,
+            "totalBlinks": total_blinks,
+            "avgRatePerMin": round(total_blinks / (duration_ms / 60000), 2) if duration_ms else 0.0,
+            "minRatePerMin": round(min(blink_rates), 2) if blink_rates else 0.0,
+            "maxRatePerMin": round(max(blink_rates), 2) if blink_rates else 0.0,
             "avgEar": round(sum(ear_values) / total, 4) if total else 0.0,
-            "longNoBlinkMs": 0,
+            "longNoBlinkMs": int(long_no_blink_ms),
         },
         "stress": {
             "avgScore": round(sum(stress_values) / total, 2) if total else 0.0,
             "peakScore": round(max(stress_values), 2) if total else 0.0,
             "minScore": round(min(stress_values), 2) if total else 0.0,
-            "highStressMs": 0,
-            "criticalStressMs": 0,
+            "highStressMs": sum_timeline_duration(timeline, interval_ms, lambda point: point["stressScore"] >= 70),
+            "criticalStressMs": sum_timeline_duration(timeline, interval_ms, lambda point: point["stressScore"] >= 85),
             "avgForeheadScore": 0.0,
             "avgJawScore": 0.0,
             "avgPeriocularScore": 0.0,
         },
         "focus": {
-            "distribution": {"high": 0.0, "medium": 0.0, "low": 0.0, "unknown": 0.0},
-            "highFocusMs": 0,
-            "lowFocusMs": 0,
+            "distribution": focus_distribution,
+            "highFocusMs": sum_timeline_duration(timeline, interval_ms, lambda point: point["focusLevel"] == "high"),
+            "lowFocusMs": sum_timeline_duration(timeline, interval_ms, lambda point: point["focusLevel"] == "low"),
         },
         "alerts": {
             "totalCount": 0,
@@ -464,22 +535,26 @@ def get_sessions(page: int = Query(default=1, ge=1), pageSize: int = Query(defau
             (data["id"],),
         ).fetchall()
         
-        total_blinks = 0
+        metric_dicts = [dict(m) for m in metrics]
+        total_blinks = count_blink_events(metric_dicts)
         stress_sum = 0
+        peak_stress = 0.0
         emotions = {}
         for m in metrics:
-            stress_sum += (m["cheek_ratio"] or 0) * 100
+            stress_score = (m["cheek_ratio"] or 0) * 100
+            stress_sum += stress_score
+            peak_stress = max(peak_stress, stress_score)
             emo = m["emotion_label"] or "neutral"
             emotions[emo] = emotions.get(emo, 0) + 1
             if m["state_text"] and "blink" in m["state_text"].lower():
-                # Đây là một cách ước tính, thực tế nên đếm event
+                # ÄÃ¢y lÃ  má»™t cÃ¡ch Æ°á»›c tÃ­nh, thá»±c táº¿ nÃªn Ä‘áº¿m event
                 pass
 
-        # Đếm blink chính xác hơn từ table Event nếu có, hoặc dùng max blink_count từ Frame_metrics
-        # Nhưng Frame_metrics của tôi không lưu blink_count. 
-        # Tôi sẽ lấy max(blink_count) nếu tôi thêm nó vào schema, hoặc đếm chuỗi "blink" chuyển đổi.
+        # Äáº¿m blink chÃ­nh xÃ¡c hÆ¡n tá»« table Event náº¿u cÃ³, hoáº·c dÃ¹ng max blink_count tá»« Frame_metrics
+        # NhÆ°ng Frame_metrics cá»§a tÃ´i khÃ´ng lÆ°u blink_count. 
+        # TÃ´i sáº½ láº¥y max(blink_count) náº¿u tÃ´i thÃªm nÃ³ vÃ o schema, hoáº·c Ä‘áº¿m chuá»—i "blink" chuyá»ƒn Ä‘á»•i.
         
-        # Thử lấy từ Frame_metrics nếu có lưu
+        # Thá»­ láº¥y tá»« Frame_metrics náº¿u cÃ³ lÆ°u
         count_row = storage.conn.execute(
             "SELECT MAX(frame_index) as frames, COUNT(id) as count FROM Frame_metrics WHERE session_id = ?",
             (data["id"],)
@@ -488,21 +563,23 @@ def get_sessions(page: int = Query(default=1, ge=1), pageSize: int = Query(defau
         dominant_emo = max(emotions, key=emotions.get) if emotions else "neutral"
         avg_stress = stress_sum / len(metrics) if metrics else 0
         
-        # Tính blink rate trung bình đơn giản: (số frames có 'blink' / fps)
+        # TÃ­nh blink rate trung bÃ¬nh Ä‘Æ¡n giáº£n: (sá»‘ frames cÃ³ 'blink' / fps)
         total_frames = len(metrics)
+        duration_ms = max(0, ended_at - started_at)
+        avg_blink_rate = round(total_blinks / (duration_ms / 60000), 2) if duration_ms else 0.0
         
         items.append(
             {
                 "sessionId": str(data["id"]),
                 "startedAt": started_at,
                 "endedAt": ended_at,
-                "durationMs": max(0, ended_at - started_at),
+                "durationMs": duration_ms,
                 "totalFrames": int(total_frames or 0),
                 "averageFps": float(data.get("fps") or 0),
-                "totalBlinks": 0, # Sẽ cần logic đếm blink từ events
-                "avgBlinkRate": 0,
+                "totalBlinks": total_blinks,
+                "avgBlinkRate": avg_blink_rate,
                 "avgStressScore": round(avg_stress, 1),
-                "peakStressScore": 0,
+                "peakStressScore": round(peak_stress, 1),
                 "dominantEmotion": dominant_emo,
                 "totalAlerts": 0,
             }
@@ -546,8 +623,19 @@ def get_session_details(session_id: int):
     }
 
 
+@app.delete("/api/sessions")
+def delete_all_sessions():
+    storage.conn.execute("DELETE FROM Frame_metrics")
+    storage.conn.execute("DELETE FROM Event")
+    storage.conn.execute("DELETE FROM Session")
+    storage.commit()
+    return {"success": True, "data": {"deleted": True}, "message": "All sessions deleted"}
+
+
 @app.delete("/api/sessions/{session_id}")
 def delete_session(session_id: int):
+    storage.conn.execute("DELETE FROM Frame_metrics WHERE session_id = ?", (session_id,))
+    storage.conn.execute("DELETE FROM Event WHERE session_id = ?", (session_id,))
     cur = storage.conn.execute("DELETE FROM Session WHERE id = ?", (session_id,))
     storage.commit()
     if cur.rowcount == 0:
@@ -850,6 +938,22 @@ async def handle_inbound(
         width, height = res_map.get(config.get("resolution", "720p"), (1280, 720))
         camera.set_resolution(width, height)
 
+        try:
+            session.db_session_id = storage.create_session(
+                mode="websocket",
+                camera_index=0,
+                width=width,
+                height=height,
+                fps=config.get("targetFps", 15),
+            )
+            print(f"[DB] Created session ID: {session.db_session_id}")
+        except Exception as exc:
+            print(f"[DB] Error: {exc}")
+            await send_error(websocket, "SESSION_CREATE_FAILED", str(exc), fatal=True)
+            session.is_running = False
+            session.session_id = None
+            return
+
         await websocket.send_text(
             json.dumps(
                 {
@@ -863,35 +967,25 @@ async def handle_inbound(
             )
         )
 
-        try:
-            session.db_session_id = storage.create_session(
-                mode="websocket",
-                camera_index=0,
-                width=width,
-                height=height,
-                fps=config.get("targetFps", 15),
-            )
-            print(f"[DB] Created session ID: {session.db_session_id}")
-        except Exception as exc:
-            print(f"[DB] Error: {exc}")
-
     elif msg_type == "stop_session":
         session.is_running = False
+        ended_at = now_ms()
+        if session.db_session_id:
+            storage.end_session(session.db_session_id)
+            storage.commit()
+
         await websocket.send_text(
             json.dumps(
                 {
                     **make_base("session_ended"),
                     "payload": {
                         "sessionId": session.session_id or "",
-                        "endedAt": now_ms(),
+                        "endedAt": ended_at,
                         "reason": "user_stopped",
                     },
                 }
             )
         )
-        if session.db_session_id:
-            storage.end_session(session.db_session_id)
-            storage.commit()
         camera.release()
         session.session_id = None
         session.db_session_id = None

@@ -29,7 +29,7 @@ def _session_started_msg(session_id: str, started_at: float, config: SessionConf
     return _make_message("session_started", {
         "sessionId": session_id,
         "startedAt": started_at,
-        "config":    config.model_dump(),
+        "config":    config.model_dump(by_alias=True),
     })
 
 
@@ -180,20 +180,22 @@ class WebSocketHandler:
                 elif msg_type == "update_config":
                     if processor:
                         new_config_data = {
-                            **processor.config.model_dump(),
+                            **processor.config.model_dump(by_alias=True),
                             **payload.get("config", {})
                         }
                         processor.config = SessionConfig(**new_config_data)
                         logger.info(f"[Handler] Config updated: {session_id}")
 
-                elif msg_type == "frame_data":
+                elif msg_type in ("video_frame", "frame_data"):
                     # Nhận frame bytes (base64 hoặc binary)
                     if status != SessionStatus.RUNNING or processor is None:
                         continue
 
-                    frame_bytes = payload.get("data", b"")
+                    frame_bytes = payload.get("image") or payload.get("data", b"")
                     if isinstance(frame_bytes, str):
                         import base64
+                        if "," in frame_bytes:
+                            frame_bytes = frame_bytes.split(",", 1)[1]
                         frame_bytes = base64.b64decode(frame_bytes)
 
                     # Xử lý frame

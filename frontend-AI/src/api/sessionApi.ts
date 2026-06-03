@@ -30,3 +30,8 @@ export const deleteSession = async (
   const response = await axiosClient.delete<DeleteSessionResponse>(`/sessions/${sessionId}`);
   return response.data;
 };
+
+export const deleteAllSessions = async (): Promise<DeleteSessionResponse> => {
+  const response = await axiosClient.delete<DeleteSessionResponse>('/sessions');
+  return response.data;
+};

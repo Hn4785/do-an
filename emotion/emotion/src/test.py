@@ -84,7 +84,7 @@ class FaceAnalyzer:
             self.EAR_CLOSED = baseline_ear * 0.7     # Ngưỡng mắt nhắm được đặt ở mức 70% của baseline EAR, nghĩa là khi EAR giảm xuống dưới 70% của giá trị trung bình, ta coi như mắt đã nhắm lại (có thể đang ngủ gật)
             self.EAR_WIDEN = baseline_ear * 1.3      # Ngưỡng mắt mở to được đặt ở mức 130% của baseline EAR, nghĩa là khi EAR tăng lên trên 130% của giá trị trung bình, ta coi như mắt đã mở to 
             self.MAR_OPEN = max(baseline_mar * 2.5, 0.35)    # Ngưỡng miệng mở được đặt ở mức 250% của baseline MAR, nhưng tối thiểu là 0.35 để tránh trường hợp baseline quá thấp dẫn đến ngưỡng quá dễ bị kích hoạt
-            self.BROW_FROWN = baseline_brow * 0.82           # Ngưỡng nhíu mày được đặt ở mức 82% của baseline brow ratio, nghĩa là khi brow ratio giảm xuống dưới 82% của giá trị trung bình, ta coi như đang nhíu mày 
+            self.BROW_FROWN = baseline_brow * 0.80           # Ngưỡng nhíu mày được đặt ở mức 80% của baseline brow ratio (giảm từ 82% để bớt nhạy)
             
             # TÍCH HỢP: Ngưỡng phồng má tăng lên 8% (1.08) so với baseline để nhận diện phồng má theo logic: khi phồng má → mép miệng chụm lại → khoảng cách tới viền má GIẢM, do đó ngưỡng CHEEK_PUFF được đặt ở mức 108% của baseline cheek ratio, nghĩa là khi cheek ratio tăng lên trên 108% của giá trị trung bình, ta coi như đang phồng má
             self.CHEEK_PUFF = baseline_cheek * 1.08     # Ngưỡng phồng má được đặt ở mức 108% của baseline cheek ratio, nghĩa là khi cheek ratio tăng lên trên 108% của giá trị trung bình, ta coi như đang phồng má (theo logic giảm khoảng cách từ Mép đến Má)

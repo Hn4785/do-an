@@ -5,7 +5,33 @@ import {
   AlertState,
   AlertType,
 } from '@/types/alert.types';
-import { DEFAULT_ALERT_RULES } from '@/utils/alertRules';
+
+const DEFAULT_ALERT_RULES: AlertRule[] = [
+  {
+    alertType: 'stress_high',
+    severity: 'warning',
+    enabled: true,
+    threshold: 70,
+    debounceMss: 0,
+    cooldownMs: 30000,
+  },
+  {
+    alertType: 'stress_critical',
+    severity: 'critical',
+    enabled: true,
+    threshold: 85,
+    debounceMss: 0,
+    cooldownMs: 30000,
+  },
+  {
+    alertType: 'blink_low',
+    severity: 'warning',
+    enabled: true,
+    threshold: 8,
+    debounceMss: 0,
+    cooldownMs: 30000,
+  },
+];
 
 interface AlertStore extends AlertState {
   addAlert: (alert: Alert) => void;

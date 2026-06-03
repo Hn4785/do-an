@@ -7,7 +7,7 @@ set ROOT_DIR=%~dp0
 
 :: 1. Khoi dong Backend (FastAPI)
 echo [+] Dang mo Backend trong cua so moi...
-start "BACKEND - FastAPI" cmd /k "cd /d %ROOT_DIR%emotion\emotion && echo [BACKEND] Dang chay server... && (.venv\Scripts\python fastapi_server.py || py -3 fastapi_server.py || python fastapi_server.py)"
+start "BACKEND - FastAPI" cmd /k "cd /d %ROOT_DIR%emotion\emotion && echo [BACKEND] Dang chay server... && (.venv\Scripts\python -m app.main || py -3 -m app.main || python -m app.main)"
 
 :: 2. Khoi dong Frontend (Vite)
 echo [+] Dang mo Frontend trong cua so moi...

@@ -23,7 +23,7 @@ from test import FaceAnalyzer
 from deepface_emotion import EmotionDetector
 
 # MODE 7 (FastAPI WebSocket)
-from fastapi_server import run_server
+from app.main import run_server
 
 # SQLITE
 from sqlite_storage import SQLiteStorage

@@ -38,7 +38,11 @@ export function useSession(): UseSessionReturn {
     const unsub = websocketService.onMessage((msg: WsInboundMessage) => {
       switch (msg.type) {
         case 'session_started':
-          store.startSession(msg.payload.sessionId, msg.payload.config);
+          store.startSession(
+            msg.payload.sessionId,
+            msg.payload.config,
+            msg.payload.startedAt
+          );
           break;
 
         case 'frame_result':
@@ -70,12 +74,12 @@ export function useSession(): UseSessionReturn {
             data: { extra: { code: msg.payload.code } },
           });
           if (msg.payload.fatal) {
-            store.endSession('error');
+            store.endSession('error', msg.timestamp);
           }
           break;
 
         case 'session_ended':
-          store.endSession(msg.payload.reason);
+          store.endSession(msg.payload.reason, msg.payload.endedAt);
           break;
 
         case 'calibration_done':

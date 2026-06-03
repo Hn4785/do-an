@@ -1,6 +1,7 @@
 import type { EmotionLabel }  from "./emotion.types";
-import type { FocusLevel }    from "./fusion.types";
 import type { AlertType }     from "./alert.types";
+
+export type FocusLevel = "high" | "medium" | "low";
 
 export interface SessionReport {
   reportId:    string;    // UUID

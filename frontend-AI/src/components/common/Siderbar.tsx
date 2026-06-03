@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   FileBarChart2,
   History,
-  Settings,
   Brain,
   Bell,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ const navItems: NavItem[] = [
   { to: '/',         label: 'Dashboard', icon: <LayoutDashboard size={20} />, end: true },
   { to: '/report',   label: 'Báo cáo',   icon: <FileBarChart2 size={20} /> },
   { to: '/history',  label: 'Lịch sử',   icon: <History size={20} /> },
-  { to: '/settings', label: 'Cài đặt',   icon: <Settings size={20} /> },
 ];
 
 export default function Sidebar() {

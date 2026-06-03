@@ -25,6 +25,8 @@ import type { EmotionLabel } from '@/types/emotion.types';
 export default function DashboardPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraOn, setCameraOn] = useState(false);
+  const [videoDims, setVideoDims] = useState({ width: 640, height: 480 });
+
 
   // ✅ Fix: dùng đúng fields từ SessionStore mới
   const { isActive, elapsedMs, startSession, stopSession } = useSession();
@@ -37,9 +39,9 @@ export default function DashboardPage() {
   const currentEmotion = emotionResult?.dominant ?? null;
 
   // ✅ Fix: useAlertStore không có activeAlerts/acknowledgeAlert
-  const alerts      = useAlertStore((s) => s.alerts);
+  const alerts = useAlertStore((s) => s.alerts);
   const unreadCount = useAlertStore((s) => s.unreadCount);
-  const markAsRead  = useAlertStore((s) => s.markAsRead);
+  const markAsRead = useAlertStore((s) => s.markAsRead);
   const dismissAlert = useAlertStore((s) => s.dismissAlert);
 
   // Lấy alerts chưa đọc để hiển thị banner
@@ -65,7 +67,17 @@ export default function DashboardPage() {
     setCameraOn(false);
   };
 
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setVideoDims({
+        width: videoRef.current.videoWidth || 640,
+        height: videoRef.current.videoHeight || 480,
+      });
+    }
+  };
+
   // ===== Session toggle =====
+
   const handleToggleSession = () => {
     if (isActive) {
       stopSession();
@@ -114,7 +126,7 @@ export default function DashboardPage() {
           key={alert.alertId}
           variant={
             alert.severity === 'critical' ? 'error' :
-            alert.severity === 'warning'  ? 'warning' : 'info'
+              alert.severity === 'warning' ? 'warning' : 'info'
           }
           title={alert.alertType}
           message={alert.message}
@@ -160,8 +172,29 @@ export default function DashboardPage() {
                 autoPlay
                 muted
                 playsInline
+                onLoadedMetadata={handleLoadedMetadata}
+
                 className="w-full h-full object-cover"
               />
+
+              {/* Face Bounding Box Overlay */}
+              {isActive && feature?.boundingBox && (
+                <div
+                  className="absolute border-2 border-green-400 rounded-lg pointer-events-none transition-all duration-150 ease-out z-10 shadow-[0_0_15px_rgba(74,222,128,0.3)]"
+                  style={{
+                    left: `${(feature.boundingBox.x / videoDims.width) * 100}%`,
+                    top: `${(feature.boundingBox.y / videoDims.height) * 100}%`,
+                    width: `${(feature.boundingBox.width / videoDims.width) * 100}%`,
+                    height: `${(feature.boundingBox.height / videoDims.height) * 100}%`,
+                  }}
+                >
+                  <div className="absolute -top-7 left-0 bg-green-400 text-gray-900 text-[10px] font-bold px-2 py-0.5 rounded-t-md whitespace-nowrap flex items-center gap-1.5 shadow-lg">
+                    <span className="text-sm">{getEmotionEmoji(currentEmotion || 'neutral' as any)}</span>
+                    <span className="uppercase tracking-wider">{getEmotionLabelVI(currentEmotion || 'neutral' as any)}</span>
+                  </div>
+                </div>
+              )}
+
               {!cameraOn && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-500">
                   <CameraOff size={48} />
@@ -235,15 +268,15 @@ export default function DashboardPage() {
             <div className="flex items-end justify-between">
               <span className={clsx(
                 'text-2xl font-bold',
-                stressClass === 'low'    ? 'text-green-400' :
-                stressClass === 'medium' ? 'text-yellow-400' : 'text-red-400'
+                stressClass === 'low' ? 'text-green-400' :
+                  stressClass === 'medium' ? 'text-yellow-400' : 'text-red-400'
               )}>
                 {(stressLevel * 100).toFixed(0)}%
               </span>
               <span className={clsx(
                 'text-xs px-2 py-0.5 rounded-full',
-                stressClass === 'low'    ? 'bg-green-950 text-green-400' :
-                stressClass === 'medium' ? 'bg-yellow-950 text-yellow-400' : 'bg-red-950 text-red-400'
+                stressClass === 'low' ? 'bg-green-950 text-green-400' :
+                  stressClass === 'medium' ? 'bg-yellow-950 text-yellow-400' : 'bg-red-950 text-red-400'
               )}>
                 {stressClass === 'low' ? 'Thấp' : stressClass === 'medium' ? 'Vừa' : 'Cao'}
               </span>
@@ -268,7 +301,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-gray-500">
               {earValue < 0.21 ? '⚠️ Đang nháy mắt' :
-               earValue < 0.23 ? '⚠️ Mắt mệt' : '✅ Bình thường'}
+                earValue < 0.23 ? '⚠️ Mắt mệt' : '✅ Bình thường'}
             </p>
           </div>
         </Card>
@@ -285,7 +318,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-gray-500">
               {blinkRate < 10 ? '⚠️ Quá ít' :
-               blinkRate > 30 ? '⚠️ Quá nhiều' : '✅ Bình thường (15-20)'}
+                blinkRate > 30 ? '⚠️ Quá nhiều' : '✅ Bình thường (15-20)'}
             </p>
           </div>
         </Card>

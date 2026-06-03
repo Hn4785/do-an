@@ -13,7 +13,11 @@ interface SessionStore extends SessionState {
   // ===== Actions =====
 
   /** Bắt đầu phiên mới — gọi sau khi backend xác nhận session_started */
-  startSession: (sessionId: string, config?: Partial<WsSessionConfig>) => void;
+  startSession: (
+    sessionId: string,
+    config?: Partial<WsSessionConfig>,
+    startedAt?: number
+  ) => void;
 
   /** Chuyển trạng thái sang 'paused' */
   pauseSession: () => void;
@@ -22,7 +26,7 @@ interface SessionStore extends SessionState {
   resumeSession: () => void;
 
   /** Kết thúc phiên với lý do cụ thể */
-  endSession: (reason: SessionEndReason) => void;
+  endSession: (reason: SessionEndReason, endedAt?: number) => void;
 
   /** Cập nhật trạng thái phiên (dùng khi nhận WS message) */
   setStatus: (status: SessionStatus) => void;
@@ -67,7 +71,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   ...initialState,
 
   // ===== startSession =====
-  startSession: (sessionId: string, config?: Partial<WsSessionConfig>) => {
+  startSession: (
+    sessionId: string,
+    config?: Partial<WsSessionConfig>,
+    startedAt?: number
+  ) => {
     const mergedConfig: WsSessionConfig = {
       ...DEFAULT_SESSION_CONFIG,
       ...config,
@@ -76,7 +84,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const newSession: Session = {
       sessionId,
       status:      'running',
-      startedAt:   Date.now(),
+      startedAt:   startedAt ?? Date.now(),
       endedAt:     null,
       endReason:   null,
       config:      mergedConfig,
@@ -111,7 +119,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   // ===== endSession =====
-  endSession: (reason: SessionEndReason) => {
+  endSession: (reason: SessionEndReason, endedAt?: number) => {
     const { current } = get();
     if (!current) return;
 
@@ -119,7 +127,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       current: {
         ...current,
         status:    'ended',
-        endedAt:   Date.now(),
+        endedAt:   endedAt ?? Date.now(),
         endReason: reason,
       },
     });
